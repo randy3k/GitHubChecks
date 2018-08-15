@@ -7,7 +7,10 @@
         }
     },
     {
-        "caption": "GitHub Build Status: Update",
-        "command": "github_build_status_update"
+        "caption": "GitHub Build Status: Refresh",
+        "command": "gbs_fetch",
+        "args": {
+            "force": true
+        }
     }
 ]

@@ -1,8 +1,10 @@
 import sublime
 import sublime_plugin
 import subprocess
+import threading
 import time
 import os
+import socket
 from .query.github import query_github, parse_remote_url
 
 
@@ -50,7 +52,7 @@ class GitManager:
         return stdout
 
     def getcwd(self):
-        f = self.view.file_name()
+        f = self.view.file_name() if self.view else None
         cwd = None
         if f:
             cwd = os.path.dirname(f)
@@ -63,40 +65,77 @@ class GitManager:
     def branch(self):
         return self.run_git(["symbolic-ref", "HEAD", "--short"])
 
+    def remote_url(self):
+        branch = self.branch()
+        if not branch:
+            return
 
-class GithubBuildStatusUpdateCommand(sublime_plugin.TextCommand):
+        remote = self.run_git(["config", "branch.{}.remote".format(branch)])
+        if not remote:
+            return
 
-    def run(self, _):
-        sublime.set_timeout_async(lambda: self.run_async())
+        remote_url = self.run_git(["config", "remote.{}.url".format(remote)])
+        if not remote_url:
+            return
+
+        return remote_url
+
+
+builds = {}
+
+
+class GbsFetchCommand(sublime_plugin.WindowCommand):
+    thread = None
+    last_fetch_time = 0
+    folders = None
+
+    def run(self, force=False):
+        window = self.window
+        if self.folders and self.folders != window.folders():
+            force = True
+
+        if not force and time.time() - self.last_fetch_time < 1:
+            return
+
+        self.last_fetch_time = time.time()
+
+        if force and self.thread:
+            self.thread.cancel()
+            self.thread = None
+
+        if not self.thread:
+            sublime.set_timeout_async(lambda: self.run_async())
 
     def run_async(self):
-        view = self.view
-        window = view.window()
+
+        window = self.window
         if not window:
             return
 
         s = sublime.load_settings("GitHubBuildStatus.sublime-settings")
+        refresh = s.get("refresh", 30)
 
         gm = GitManager(window)
         branch = gm.branch()
         if not branch:
             return
-
         remote = gm.run_git(["config", "branch.{}.remote".format(branch)])
         if not remote:
             return
-
         remote_url = gm.run_git(["config", "remote.{}.url".format(remote)])
         if not remote_url:
             return
-
         head_sha = gm.run_git(["rev-parse", "HEAD"])
         if not head_sha:
             return
         head_sha = head_sha
 
-        token = s.get("token", {})
+        self.thread = threading.Timer(
+            int(refresh),
+            lambda: window.run_command("gbs_fetch", {"force": True}))
+        self.thread.start()
 
+        token = s.get("token", {})
         github_repo = parse_remote_url(remote_url)
         token = token[github_repo.fqdn] if github_repo.fqdn in token else None
 
@@ -106,7 +145,11 @@ class GithubBuildStatusUpdateCommand(sublime_plugin.TextCommand):
             branch=branch
         )
 
-        reponse = query_github(path, github_repo, token)
+        try:
+            reponse = query_github(path, github_repo, token)
+        except socket.gaierror:
+            return
+
         contexts = {}
         if reponse.status == 200:
             if reponse.is_json:
@@ -121,6 +164,30 @@ class GithubBuildStatusUpdateCommand(sublime_plugin.TextCommand):
         if "github/pages" in contexts:
             del contexts["github/pages"]
 
+        builds[window.id()] = {
+            "contexts": contexts
+        }
+
+        view = window.active_view()
+        if view:
+            view.run_command("gbs_update")
+
+
+class GbsUpdateCommand(sublime_plugin.TextCommand):
+
+    def run(self, _):
+        sublime.set_timeout_async(lambda: self.run_async())
+
+    def run_async(self):
+        view = self.view
+        window = view.window()
+        if not window:
+            return
+        if window.id() not in builds:
+            return
+
+        build = builds[window.id()]
+        contexts = build["contexts"]
         success = 0
         failure = 0
         error = 0
@@ -130,8 +197,8 @@ class GithubBuildStatusUpdateCommand(sublime_plugin.TextCommand):
             failure += status["state"] == "failure"
             error += status["state"] == "error"
             pending += status["state"] == "pending"
-
         total = success + failure + error + pending
+
         if pending:
             message = "Build {:d}/{:d} ({:d})".format(success, total, pending)
         else:
@@ -139,20 +206,14 @@ class GithubBuildStatusUpdateCommand(sublime_plugin.TextCommand):
 
         if total:
             view.set_status("github_build_status", message)
-            refresh_pending = s.get("refresh_pending", 30)
-            if pending:
-                sublime.set_timeout(
-                    lambda: view.run_command("github_build_status_update"),
-                    int(refresh_pending) * 1000)
 
 
 class GitHubBuildStatusHandler(sublime_plugin.EventListener):
-    last_update_time = {}
 
     def update_build_status(self, view):
-        sublime.set_timeout_async(lambda: self._update_status_bar(view))
+        sublime.set_timeout_async(lambda: self.update_build_status_async(view))
 
-    def _update_status_bar(self, view):
+    def update_build_status_async(self, view):
         if not view:
             return
 
@@ -160,14 +221,8 @@ class GitHubBuildStatusHandler(sublime_plugin.EventListener):
         if not window:
             return
 
-        if window.id() in self.last_update_time:
-            # avoid consecutive updates
-            last_time = self.last_update_time[window.id()]
-            if time.time() - last_time < 5:
-                return
-
-        self.last_update_time[window.id()] = time.time()
-        view.run_command("github_build_status_update")
+        window.run_command("gbs_fetch")
+        view.run_command("gbs_update")
 
     def on_new(self, view):
         self.update_build_status(view)

@@ -5,7 +5,5 @@
         // "github.com": "<your token>"
     },
     // number of seconds to refresh
-    "refresh": 120,
-    // number of seconds to refresh if the status is pending
-    "refresh_pending": 30
+    "refresh": 30
 }
