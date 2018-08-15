@@ -10,7 +10,8 @@
         "caption": "GitHub Build Status: Refresh",
         "command": "gbs_fetch",
         "args": {
-            "force": true
+            "force": true,
+            "verbose": true
         }
     }
 ]

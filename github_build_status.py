@@ -89,7 +89,7 @@ class GbsFetchCommand(sublime_plugin.WindowCommand):
     last_fetch_time = 0
     folders = None
 
-    def run(self, force=False):
+    def run(self, force=False, verbose=False):
         window = self.window
         if self.folders and self.folders != window.folders():
             force = True
@@ -105,9 +105,9 @@ class GbsFetchCommand(sublime_plugin.WindowCommand):
             self.thread = None
 
         if not self.thread:
-            sublime.set_timeout_async(lambda: self.run_async())
+            sublime.set_timeout_async(lambda: self.run_async(force, verbose))
 
-    def run_async(self):
+    def run_async(self, force=False, verbose=False):
 
         window = self.window
         if not window:
@@ -119,9 +119,13 @@ class GbsFetchCommand(sublime_plugin.WindowCommand):
         gm = GitManager(window)
         branch = gm.branch()
         if not branch:
+            if verbose:
+                print("branch not found")
             return
         remote = gm.run_git(["config", "branch.{}.remote".format(branch)])
         if not remote:
+            if verbose:
+                print("remote not found")
             return
         remote_url = gm.run_git(["config", "remote.{}.url".format(remote)])
         if not remote_url:
@@ -149,18 +153,23 @@ class GbsFetchCommand(sublime_plugin.WindowCommand):
         try:
             reponse = query_github(path, github_repo, token)
         except socket.gaierror:
+            if verbose:
+                print("network error")
             return
 
         contexts = {}
-        if reponse.status == 200:
-            if reponse.is_json:
-                for status in reponse.payload:
-                    context = status["context"]
-                    if context not in contexts or status["state"] != "pending":
-                        contexts[context] = {
-                            "state": status["state"],
-                            "description": status["description"]
-                        }
+        if reponse.status == 200 and reponse.is_json:
+            for status in reponse.payload:
+                context = status["context"]
+                if context not in contexts or status["state"] != "pending":
+                    contexts[context] = {
+                        "state": status["state"],
+                        "description": status["description"]
+                    }
+        else:
+            if verbose:
+                print("payload error")
+            return
 
         if "github/pages" in contexts:
             del contexts["github/pages"]
@@ -172,6 +181,9 @@ class GbsFetchCommand(sublime_plugin.WindowCommand):
         view = window.active_view()
         if view:
             view.run_command("gbs_update")
+
+        if verbose:
+            window.status_message("GitHub build status refreshed.")
 
 
 class GbsUpdateCommand(sublime_plugin.TextCommand):
