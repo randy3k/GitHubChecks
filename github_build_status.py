@@ -58,7 +58,7 @@ class GitManager:
             cwd = os.path.dirname(f)
         if not cwd:
             window = self.view.window()
-            if window:
+            if window and window.folders():
                 cwd = window.folders()[0]
         return cwd
 
