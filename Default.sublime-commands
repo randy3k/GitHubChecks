@@ -1,0 +1,13 @@
+[
+    {
+        "caption": "Preferences: GitHub Build Status Settings",
+        "command": "edit_settings",
+        "args": {
+            "base_file": "${packages}/GitHubBuildStatus/GitHubBuildStatus.sublime-settings"
+        }
+    },
+    {
+        "caption": "GitHub Build Status: Update",
+        "command": "github_build_status_update"
+    }
+]
