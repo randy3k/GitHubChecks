@@ -97,6 +97,7 @@ class GbsFetchCommand(sublime_plugin.WindowCommand):
         if not force and time.time() - self.last_fetch_time < 1:
             return
 
+        self.folders = window.folders()
         self.last_fetch_time = time.time()
 
         if force and self.thread:
