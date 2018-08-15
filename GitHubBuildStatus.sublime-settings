@@ -3,6 +3,7 @@
     "git": "git",
     "token": {
         // "github.com": "<your token>"
+        // "another enterprise domain": "another token"
     },
     // number of seconds to refresh
     "refresh": 30
