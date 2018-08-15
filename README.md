@@ -4,7 +4,7 @@
 
 Display GitHub CI build status in Sublime Text. 
 
-The badge: `Build x/y (z)` where `x` is the number of successful builds, `y` is the total and `z` is the number of pendings (if any).
+The badge: `Build x(y)/z` where `x` is the number of successful builds, `y` is the number of pendings (if any) and `z` is the total.
 
 
 ## Installation

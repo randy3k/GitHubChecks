@@ -201,7 +201,7 @@ class GbsUpdateCommand(sublime_plugin.TextCommand):
         total = success + failure + error + pending
 
         if pending:
-            message = "Build {:d}/{:d} ({:d})".format(success, total, pending)
+            message = "Build {:d}({:d})/{:d} ".format(success, pending, total)
         else:
             message = "Build {:d}/{:d}".format(success, total)
 
