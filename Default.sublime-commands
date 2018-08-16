@@ -13,5 +13,10 @@
             "force": true,
             "verbose": true
         }
+    },
+    {
+        "caption": "GitHub Build Status: Details",
+        "command": "show_panel",
+        "args": { "panel": "output.GitHubBuildStatus" }
     }
 ]
