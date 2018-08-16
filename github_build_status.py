@@ -3,11 +3,34 @@ import sublime_plugin
 import subprocess
 import threading
 from datetime import datetime
-from .utils import dates
 import time
 import os
 import socket
+import webbrowser
+
+from .utils import dates
 from .query.github import query_github, parse_remote_url
+
+
+URL_POPUP = """
+<style>
+body {
+    margin: 0px;
+}
+div {
+    border: 1px;
+    border-style: solid;
+    border-color: grey;
+}
+</style>
+<body>
+<div>
+<a href="open">
+<img width="20%" height="20%" src="res://Packages/GitHubBuildStatus/images/link.png" />
+</a>
+</div>
+</body>
+"""
 
 
 def plugin_loaded():
@@ -175,8 +198,8 @@ class GbsFetchCommand(sublime_plugin.WindowCommand):
                         "state": status["state"],
                         "description": status["description"],
                         "target_url": status["target_url"],
-                        "created_at": parse_time(status["created_at"]),
-                        "updated_at": parse_time(status["updated_at"])
+                        "created_at": status["created_at"],
+                        "updated_at": status["updated_at"]
                     }
         else:
             if verbose or debug:
@@ -237,38 +260,50 @@ class GbsUpdateCommand(sublime_plugin.TextCommand):
         if total:
             view.set_status("github_build_status", message)
 
+    def status_summary(self, success, failure, error, pending):
+        text = ""
+        if success:
+            text += "{:d} success{}".format(success, "es" if success > 1 else "")
+        if failure:
+            if success and (error or pending):
+                text += " , "
+            elif success:
+                text += " and "
+            text += "{:d} failure{}".format(failure, "s" if failure > 1 else "")
+        if error:
+            if (success or failure) and pending:
+                text += " , "
+            elif success or failure:
+                text += " and "
+            text += "{:d} error{}".format(error, "s" if error > 1 else "")
+        if pending:
+            if success or failure or error:
+                text += " and "
+            text += "{:d} pending{}".format(pending, "s" if pending > 1 else "")
+
+        return text
+
     def update_output_panel(self, contexts, success, failure, error, pending):
         window = self.view.window()
 
+        preferece = sublime.load_settings("Preferences.sublime-settings")
+
         output_panel = window.get_output_panel("GitHubBuildStatus")
+        output_panel.settings().set("color_scheme", preferece.get("color_scheme"))
+        output_panel.settings().set("syntax", "github-build-status.sublime-syntax")
+        output_panel.settings().set("github-build-status", True)
 
         def write(text):
             output_panel.run_command("append", {"characters": text})
 
-        if success:
-            write("{:d} success{}".format(success, "es" if success > 1 else ""))
-        if failure:
-            if success and (error or pending):
-                write(" , ")
-            elif success:
-                write(" and ")
-            write("{:d} failure{} ".format(failure, "s" if failure > 1 else ""))
-        if error:
-            if (success or failure) and pending:
-                write(" , ")
-            elif success or failure:
-                write(" and ")
-            write("{:d} error{} ".format(error, "s" if error > 1 else ""))
-        if pending:
-            if success or failure or error:
-                write(" and ")
-            write("{:d} pending{} ".format(pending, "s" if pending > 1 else ""))
+        write(self.status_summary(success, failure, error, pending))
 
         if success + failure + error + pending:
-            last_update_time = max([status["updated_at"] for status in contexts.values()])
+            last_update_time = max([parse_time(status["updated_at"])
+                                    for status in contexts.values()])
             write(" (" + dates.fuzzy(last_update_time) + ")\n\n")
 
-            for context, status in sorted(contexts.items()):
+            for i, (context, status) in enumerate(sorted(contexts.items())):
                 write("{}: {} - {}\n".format(context, status["state"], status["description"]))
 
 
@@ -296,3 +331,42 @@ class GbsHandler(sublime_plugin.EventListener):
 
     def on_activated(self, view):
         self.update_build_status(view)
+
+    def on_hover(self, view, point, hover_zone):
+        if not view.settings().get("github-build-status", False):
+            return
+
+        window = view.window()
+        if not window:
+            return
+        if window.id() not in builds:
+            return
+        if hover_zone != sublime.HOVER_TEXT:
+            return
+        if view.match_selector(point, "entity.name") == 0:
+            return
+
+        build = builds[window.id()]
+        region = view.extract_scope(point)
+        context = view.substr(region)
+
+        url = build["contexts"][context]["target_url"]
+
+        view.add_regions(
+            context,
+            [region],
+            "meta",
+            flags=sublime.DRAW_NO_FILL | sublime.DRAW_NO_OUTLINE | sublime.DRAW_SOLID_UNDERLINE)
+
+        def on_navigate(action):
+            if action == "open":
+                webbrowser.open_new_tab(url)
+
+        def on_hide():
+            view.erase_regions(context)
+
+        view.show_popup(
+            URL_POPUP,
+            sublime.HIDE_ON_MOUSE_MOVE_AWAY,
+            location=point,
+            on_navigate=on_navigate, on_hide=on_hide)
