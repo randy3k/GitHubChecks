@@ -2,6 +2,7 @@
 
 <img width="255" alt="screen shot 2018-08-15 at 1 23 02 am" src="https://user-images.githubusercontent.com/1690993/44132816-f0c5145e-a029-11e8-9738-07d05491f57d.png">
 
+
 Display GitHub CI build status in Sublime Text. 
 
 The badge: `Build x(y)/z` where `x` is the number of successful builds, `y` is the number of pendings (if any) and `z` is the total.
@@ -21,6 +22,13 @@ cd "$env:appdata\Sublime Text 3\Packages\"
 
 git clone git@github.com:randy3k/GitHubBuildStatus.git
 ```
+
+## Show Build Status Details
+
+Run `Github Build Status: Details`
+
+<img width="800" src="https://user-images.githubusercontent.com/1690993/44185676-eaf86300-a0e2-11e8-9273-348313729e87.png">
+
 
 ## Settings
 
