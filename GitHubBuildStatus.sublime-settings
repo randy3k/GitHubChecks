@@ -5,8 +5,11 @@
         // "github.com": "<your token>"
         // "another enterprise domain": "another token"
     },
-    // number of seconds to refresh
+    // number of seconds to refresh if there is a pending build
     "refresh": 30,
+
+    // number of seconds to allow re-fetching from the api
+    "cooldown": 60,
 
     "debug": false
 }

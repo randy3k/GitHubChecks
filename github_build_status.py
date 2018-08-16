@@ -118,12 +118,16 @@ class GbsFetchCommand(sublime_plugin.WindowCommand):
     last_fetch_time = 0
     folders = None
 
+    def gbs_settings(self, key, default=None):
+        s = sublime.load_settings("GitHubBuildStatus.sublime-settings")
+        return s.get(key, default)
+
     def run(self, force=False, verbose=False):
         window = self.window
         if self.folders and self.folders != window.folders():
             force = True
 
-        if not force and time.time() - self.last_fetch_time < 1:
+        if not force and time.time() - self.last_fetch_time < self.gbs_settings("cooldown", {}):
             return
 
         self.folders = window.folders()
@@ -142,9 +146,7 @@ class GbsFetchCommand(sublime_plugin.WindowCommand):
         if not window:
             return
 
-        s = sublime.load_settings("GitHubBuildStatus.sublime-settings")
-        refresh = s.get("refresh", 30)
-        debug = s.get("debug", False)
+        debug = self.gbs_settings("debug", False)
 
         gm = GitManager(window)
         branch = gm.branch()
@@ -165,12 +167,7 @@ class GbsFetchCommand(sublime_plugin.WindowCommand):
             return
         tracking_branch = tracking_branch.replace("refs/heads/", "")
 
-        self.thread = threading.Timer(
-            int(refresh),
-            lambda: window.run_command("gbs_fetch", {"force": True}))
-        self.thread.start()
-
-        token = s.get("token", {})
+        token = self.gbs_settings("token", {})
         github_repo = parse_remote_url(remote_url)
         token = token[github_repo.fqdn] if github_repo.fqdn in token else None
 
@@ -214,16 +211,23 @@ class GbsFetchCommand(sublime_plugin.WindowCommand):
         builds[window.id()] = {
             "contexts": contexts
         }
+        pending = sum(status["state"] == "pending" for status in contexts.values())
+
+        if contexts and pending:
+            self.thread = threading.Timer(
+                int(self.gbs_settings("refresh", {})),
+                lambda: window.run_command("gbs_update", {"force": True}))
+            self.thread.start()
 
         view = window.active_view()
         if view:
-            view.run_command("gbs_update")
+            view.run_command("gbs_render")
 
         if verbose:
             window.status_message("GitHub build status refreshed.")
 
 
-class GbsUpdateCommand(sublime_plugin.TextCommand):
+class GbsRenderCommand(sublime_plugin.TextCommand):
 
     build = None
 
@@ -244,10 +248,10 @@ class GbsUpdateCommand(sublime_plugin.TextCommand):
         self.build = build
 
         contexts = build["contexts"]
-        success = len([status for status in contexts.values() if status["state"] == "success"])
-        failure = len([status for status in contexts.values() if status["state"] == "failure"])
-        error = len([status for status in contexts.values() if status["state"] == "error"])
-        pending = len([status for status in contexts.values() if status["state"] == "pending"])
+        success = sum(status["state"] == "success" for status in contexts.values())
+        failure = sum(status["state"] == "failure" for status in contexts.values())
+        error = sum(status["state"] == "error" for status in contexts.values())
+        pending = sum(status["state"] == "pending" for status in contexts.values())
         total = success + failure + error + pending
 
         self.update_output_panel(contexts, success, failure, error, pending)
@@ -321,7 +325,7 @@ class GbsHandler(sublime_plugin.EventListener):
             return
 
         window.run_command("gbs_fetch")
-        view.run_command("gbs_update")
+        view.run_command("gbs_render")
 
     def on_new(self, view):
         self.update_build_status(view)
