@@ -253,10 +253,13 @@ class GbsRenderCommand(sublime_plugin.TextCommand):
 
         self.update_output_panel(contexts, success, failure, error, pending)
 
+        message = "Build "
+        if success:
+            message = message + "{:d}+".format(success)
+        if failure + error:
+            message = message + "{:d}-".format(failure + error)
         if pending:
-            message = "Build {:d}({:d})/{:d} ".format(success, pending, total)
-        else:
-            message = "Build {:d}/{:d}".format(success, total)
+            message = message + "{:d}?".format(pending)
 
         if total:
             view.set_status("github_build_status", message)
