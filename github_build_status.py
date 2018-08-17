@@ -307,7 +307,7 @@ class GbsRenderCommand(sublime_plugin.TextCommand):
         if success + failure + error + pending:
             last_update_time = max([parse_time(status["updated_at"])
                                     for status in contexts.values()])
-            write(" (" + dates.fuzzy(last_update_time) + ")\n\n")
+            write(" (" + dates.fuzzy(last_update_time, datetime.utcnow()) + ")\n\n")
 
             for i, (context, status) in enumerate(sorted(contexts.items())):
                 write("{}: {} - {}\n".format(context, status["state"], status["description"]))
