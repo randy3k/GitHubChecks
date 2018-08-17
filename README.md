@@ -23,7 +23,7 @@ cd $HOME/.config/sublime-text-3/Packages
 # on Windows (PowerShell)
 cd "$env:appdata\Sublime Text 3\Packages\"
 
-git clone git@github.com:randy3k/GitHubBuildStatus.git
+git clone git@github.com/randy3k/GitHubBuildStatus.git
 ```
 
 ## Show Build Status Details
