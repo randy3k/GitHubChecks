@@ -255,9 +255,9 @@ class GbsRenderCommand(sublime_plugin.TextCommand):
 
         message = "Build "
         if success:
-            message = message + "{:d}+".format(success)
+            message = message + "{:d}✓".format(success)
         if failure + error:
-            message = message + "{:d}-".format(failure + error)
+            message = message + "{:d}x".format(failure + error)
         if pending:
             message = message + "{:d}?".format(pending)
 
