@@ -10,7 +10,10 @@ The badge: `Build x(y)/z` where `x` is the number of successful builds, `y` is t
 
 ## Installation
 
-To install, clone the package manually to your Package directory. It would be eventually published to Package Control once it gets more mature.
+GitHubBuildStatus is available to be installed via Package Control.
+
+
+To install manually, clone the package manually to your Package directory. It would be eventually published to Package Control once it gets more mature.
 
 ```sh
 # on macOS
@@ -32,4 +35,4 @@ Run `Github Build Status: Details`
 
 ## Settings
 
-You are also recommended to provide your own [github api token](https://help.github.com/articles/creating-a-personal-access-token-for-the-command-line/) to allow more frequent refresh and access to your private repo. Simply run `Preference: GitHub Build Status` and edit the `token` setting.
+You are also recommended to provide your own [github api token](https://help.github.com/articles/creating-a-personal-access-token-for-the-command-line/) to allow more frequent refreshes and access to your private repos. Simply run `Preference: GitHub Build Status` and edit the `token` setting.
