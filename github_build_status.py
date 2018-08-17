@@ -190,7 +190,9 @@ class GbsFetchCommand(sublime_plugin.WindowCommand):
         if reponse.status == 200 and reponse.is_json:
             for status in reponse.payload:
                 context = status["context"]
-                if context not in contexts or status["state"] != "pending":
+                if context not in contexts or \
+                        parse_time(status["updated_at"]) >  \
+                        parse_time(contexts[context]["updated_at"]):
                     contexts[context] = {
                         "state": status["state"],
                         "description": status["description"],
