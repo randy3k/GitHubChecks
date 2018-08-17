@@ -45,14 +45,13 @@ def parse_time(time_string):
     return datetime.strptime(time_string, "%Y-%m-%dT%H:%M:%SZ")
 
 
-class GitManager:
-    def __init__(self, window):
-        self.window = window
-        self.view = window.active_view()
-        s = sublime.load_settings("GitHubBuildStatus.sublime-settings")
-        self.git = s.get("git", "git")
+class GitCommand:
 
-    def run_git(self, cmd, cwd=None):
+    def gbs_settings(self, key, default=None):
+        s = sublime.load_settings("GitHubBuildStatus.sublime-settings")
+        return s.get(key, default)
+
+    def git(self, cmd, cwd=None):
         plat = sublime.platform()
         if not cwd:
             cwd = self.getcwd()
@@ -61,7 +60,7 @@ class GitManager:
 
         if type(cmd) == str:
             cmd = [cmd]
-        cmd = [self.git] + cmd
+        cmd = [self.gbs_settings("git", "git")] + cmd
         if plat == "windows":
             # make sure console does not come up
             startupinfo = subprocess.STARTUPINFO()
@@ -81,57 +80,59 @@ class GitManager:
         return stdout
 
     def getcwd(self):
-        f = self.view.file_name() if self.view else None
+        if hasattr(self, "view"):
+            view = self.view
+            window = view.window()
+        else:
+            window = self.window
+            view = window.active_view()
+
+        f = view.file_name() if view else None
         cwd = None
         if f:
             cwd = os.path.dirname(f)
         if not cwd:
-            window = self.view.window()
             if window and window.folders():
                 cwd = window.folders()[0]
         return cwd
 
     def branch(self):
-        return self.run_git(["symbolic-ref", "HEAD", "--short"])
-
-    def remote_url(self):
-        branch = self.branch()
-        if not branch:
-            return
-
-        remote = self.run_git(["config", "branch.{}.remote".format(branch)])
-        if not remote:
-            return
-
-        remote_url = self.run_git(["config", "remote.{}.url".format(remote)])
-        if not remote_url:
-            return
-
-        return remote_url
+        return self.git(["symbolic-ref", "HEAD", "--short"])
 
 
 builds = {}
 
 
-class GbsFetchCommand(sublime_plugin.WindowCommand):
+class GbsFetchCommand(GitCommand, sublime_plugin.WindowCommand):
     thread = None
     last_fetch_time = 0
+    _branch = None
     folders = None
-
-    def gbs_settings(self, key, default=None):
-        s = sublime.load_settings("GitHubBuildStatus.sublime-settings")
-        return s.get(key, default)
 
     def run(self, force=False, verbose=False):
         window = self.window
         if self.folders and self.folders != window.folders():
             force = True
 
+        branch = self.branch()
+        if self._branch and self._branch != branch:
+            force = True
+
+        if not branch:
+            if verbose or self.gbs_settings("debug", False):
+                print("branch not found")
+            return
+
         if not force and time.time() - self.last_fetch_time < self.gbs_settings("cooldown", {}):
+            return
+
+        if time.time() - self.last_fetch_time < 1:
+            # still, avoid too frequent refresh
             return
 
         self.folders = window.folders()
         self.last_fetch_time = time.time()
+        self._branch = branch
 
         if force and self.thread:
             self.thread.cancel()
@@ -148,21 +149,15 @@ class GbsFetchCommand(sublime_plugin.WindowCommand):
 
         debug = self.gbs_settings("debug", False)
 
-        gm = GitManager(window)
-        branch = gm.branch()
-        if not branch:
-            if verbose or debug:
-                print("branch not found")
-            return
-        remote = gm.run_git(["config", "branch.{}.remote".format(branch)])
+        remote = self.git(["config", "branch.{}.remote".format(self._branch)])
         if not remote:
             if verbose or debug:
                 print("remote not found")
             return
-        remote_url = gm.run_git(["config", "remote.{}.url".format(remote)])
+        remote_url = self.git(["config", "remote.{}.url".format(remote)])
         if not remote_url:
             return
-        tracking_branch = gm.run_git(["config", "branch.{}.merge".format(branch)])
+        tracking_branch = self.git(["config", "branch.{}.merge".format(self._branch)])
         if not tracking_branch or not tracking_branch.startswith("refs/heads/"):
             return
         tracking_branch = tracking_branch.replace("refs/heads/", "")
