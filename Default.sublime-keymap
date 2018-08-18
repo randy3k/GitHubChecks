@@ -1,0 +1,3 @@
+[
+    { "keys": ["r"], "command": "gbs_fetch", "args": {"force": true, "verbose": true}, "context": [{"key": "setting.github-build-status"}] }
+]

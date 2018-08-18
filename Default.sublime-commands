@@ -17,6 +17,6 @@
     {
         "caption": "GitHub Build Status: Details",
         "command": "show_panel",
-        "args": { "panel": "output.GitHubBuildStatus" }
+        "args": { "panel": "output.GitHub Build Status" }
     }
 ]

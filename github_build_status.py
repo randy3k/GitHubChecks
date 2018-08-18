@@ -292,20 +292,25 @@ class GbsRenderCommand(sublime_plugin.TextCommand):
 
         preferece = sublime.load_settings("Preferences.sublime-settings")
 
-        output_panel = window.get_output_panel("GitHubBuildStatus")
+        output_panel = window.get_output_panel("GitHub Build Status")
         output_panel.settings().set("color_scheme", preferece.get("color_scheme"))
         output_panel.settings().set("syntax", "github-build-status.sublime-syntax")
         output_panel.settings().set("github-build-status", True)
+        output_panel.set_read_only(True)
 
         def write(text):
+            output_panel.set_read_only(False)
             output_panel.run_command("append", {"characters": text})
+            output_panel.set_read_only(True)
 
         write(self.status_summary(success, failure, error, pending))
 
         if success + failure + error + pending:
             last_update_time = max([parse_time(status["updated_at"])
                                     for status in contexts.values()])
-            write(" (" + dates.fuzzy(last_update_time, datetime.utcnow()) + ")\n\n")
+            write(" (" + dates.fuzzy(last_update_time, datetime.utcnow()) + ") ")
+
+            write("\n\n")
 
             for i, (context, status) in enumerate(sorted(contexts.items())):
                 write("{}: {} - {}\n".format(context, status["state"], status["description"]))
