@@ -123,7 +123,7 @@ class GbsFetchCommand(GitCommand, sublime_plugin.WindowCommand):
                 print("branch not found")
             return
 
-        if not force and time.time() - self.last_fetch_time < self.gbs_settings("cooldown", {}):
+        if not force and time.time() - self.last_fetch_time < self.gbs_settings("cooldown", 60):
             return
 
         if time.time() - self.last_fetch_time < 1:
