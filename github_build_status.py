@@ -227,10 +227,14 @@ class GbsFetchCommand(GitCommand, sublime_plugin.WindowCommand):
 
 class GbsRenderCommand(sublime_plugin.TextCommand):
 
+    last_render_time = 0
     build = None
     badge = None
 
     def run(self, _, force=False):
+        if not force and time.time() - self.last_render_time < 5:
+            return
+        self.last_render_time = time.time()
         sublime.set_timeout_async(lambda: self.run_async(force))
 
     def run_async(self, force):
