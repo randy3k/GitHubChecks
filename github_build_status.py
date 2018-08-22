@@ -218,7 +218,7 @@ class GbsFetchCommand(GitCommand, sublime_plugin.WindowCommand):
 
         view = window.active_view()
         if view:
-            view.run_command("gbs_render")
+            view.run_command("gbs_render", {"force": force})
 
         if verbose:
             window.status_message("GitHub build status refreshed.")
@@ -231,10 +231,10 @@ class GbsRenderCommand(sublime_plugin.TextCommand):
     dots = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
     dots_index = 0
 
-    def run(self, _):
-        sublime.set_timeout_async(lambda: self.run_async())
+    def run(self, _, force=False):
+        sublime.set_timeout_async(lambda: self.run_async(force))
 
-    def run_async(self):
+    def run_async(self, force):
         view = self.view
         window = view.window()
         if not window:
@@ -243,7 +243,7 @@ class GbsRenderCommand(sublime_plugin.TextCommand):
             return
 
         build = builds[window.id()]
-        if build == self.build:
+        if not force and build == self.build:
             return
 
         if self.thread:
