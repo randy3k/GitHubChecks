@@ -304,10 +304,19 @@ class GbsRenderCommand(sublime_plugin.TextCommand):
 
         preferece = sublime.load_settings("Preferences.sublime-settings")
 
-        output_panel = window.get_output_panel("GitHub Build Status")
-        output_panel.settings().set("color_scheme", preferece.get("color_scheme"))
-        output_panel.settings().set("syntax", "github-build-status.sublime-syntax")
-        output_panel.settings().set("github-build-status", True)
+        output_panel = window.find_output_panel("GitHub Build Status")
+        if not output_panel:
+            output_panel = window.create_output_panel("GitHub Build Status")
+            output_panel.settings().set("color_scheme", preferece.get("color_scheme"))
+            output_panel.settings().set("syntax", "github-build-status.sublime-syntax")
+            output_panel.settings().set("github-build-status", True)
+            output_panel.set_read_only(True)
+
+        sel = [s for s in output_panel.sel()]
+
+        output_panel.set_read_only(False)
+        output_panel.run_command("select_all")
+        output_panel.run_command("left_delete")
         output_panel.set_read_only(True)
 
         def write(text):
@@ -340,6 +349,9 @@ class GbsRenderCommand(sublime_plugin.TextCommand):
 
             for i, (context, status) in enumerate(sorted(contexts.items())):
                 write("{}: {} - {}\n".format(context, status["state"], status["description"]))
+
+        output_panel.sel().clear()
+        output_panel.sel().add_all(sel)
 
 
 class GbsHandler(sublime_plugin.EventListener):
