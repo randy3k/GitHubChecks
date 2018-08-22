@@ -242,7 +242,8 @@ class GbsRenderCommand(sublime_plugin.TextCommand):
             return
 
         build = builds[window.id()]
-        if not force and build == self.build:
+        if window.active_panel() != "output.GitHub Build Status" and \
+                not force and build == self.build:
             return
 
         if not self.badge:
