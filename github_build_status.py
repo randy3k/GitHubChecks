@@ -9,6 +9,7 @@ import socket
 import webbrowser
 
 from .utils import dates
+from .utils.badge import DynamicBadge
 from .query.github import query_github, parse_remote_url
 
 
@@ -227,9 +228,7 @@ class GbsFetchCommand(GitCommand, sublime_plugin.WindowCommand):
 class GbsRenderCommand(sublime_plugin.TextCommand):
 
     build = None
-    thread = None
-    dots = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
-    dots_index = 0
+    badge = None
 
     def run(self, _, force=False):
         sublime.set_timeout_async(lambda: self.run_async(force))
@@ -246,8 +245,8 @@ class GbsRenderCommand(sublime_plugin.TextCommand):
         if not force and build == self.build:
             return
 
-        if self.thread:
-            self.thread.cancel()
+        if not self.badge:
+            self.badge = DynamicBadge(view, "badge#{:d}".format(view.id()))
 
         self.build = build
 
@@ -261,27 +260,19 @@ class GbsRenderCommand(sublime_plugin.TextCommand):
         self.update_output_panel(contexts, success, failure, error, pending)
 
         if total:
-            def set_status():
-                message = "Build "
-                if success:
-                    message = message + "{:d}✓".format(success)
-                if failure + error:
-                    message = message + "{:d}✕".format(failure + error)
-                if pending:
-                    message = message + "{:d}{}".format(pending, self.dots[self.dots_index % 10])
-                    self.dots_index += 1
-                view.set_status("github_build_status", message)
+            message = "Build "
+            if success:
+                message = message + "{:d}✓".format(success)
+            if failure + error:
+                message = message + "{:d}✕".format(failure + error)
+            if pending:
+                message = message + "{:d}{{indicator}}".format(pending)
 
-                if pending:
-                    if self.thread:
-                        self.thread.cancel()
-                    self.thread = threading.Timer(
-                        0.1,
-                        set_status
-                        )
-                    self.thread.start()
+            self.badge.set_status(message)
 
-            set_status()
+        else:
+            self.badge.erase()
+            self.badge = None
 
     def status_summary(self, success, failure, error, pending):
         text = ""
