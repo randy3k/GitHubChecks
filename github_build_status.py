@@ -257,7 +257,8 @@ class GbsRenderCommand(sublime_plugin.TextCommand):
         pending = sum(status["state"] == "pending" for status in contexts.values())
         total = success + failure + error + pending
 
-        self.update_output_panel(contexts, success, failure, error, pending)
+        sublime.set_timeout(
+            lambda: self.update_output_panel(contexts, success, failure, error, pending))
 
         if total:
             message = "Build "
