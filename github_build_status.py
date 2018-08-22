@@ -227,6 +227,9 @@ class GbsFetchCommand(GitCommand, sublime_plugin.WindowCommand):
 class GbsRenderCommand(sublime_plugin.TextCommand):
 
     build = None
+    thread = None
+    dots = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+    dots_index = 0
 
     def run(self, _):
         sublime.set_timeout_async(lambda: self.run_async())
@@ -242,6 +245,10 @@ class GbsRenderCommand(sublime_plugin.TextCommand):
         build = builds[window.id()]
         if build == self.build:
             return
+
+        if self.thread:
+            self.thread.cancel()
+
         self.build = build
 
         contexts = build["contexts"]
@@ -253,16 +260,28 @@ class GbsRenderCommand(sublime_plugin.TextCommand):
 
         self.update_output_panel(contexts, success, failure, error, pending)
 
-        message = "Build "
-        if success:
-            message = message + "{:d}✓".format(success)
-        if failure + error:
-            message = message + "{:d}x".format(failure + error)
-        if pending:
-            message = message + "{:d}?".format(pending)
-
         if total:
-            view.set_status("github_build_status", message)
+            def set_status():
+                message = "Build "
+                if success:
+                    message = message + "{:d}✓".format(success)
+                if failure + error:
+                    message = message + "{:d}✕".format(failure + error)
+                if pending:
+                    message = message + "{:d}{}".format(pending, self.dots[self.dots_index % 10])
+                    self.dots_index += 1
+                view.set_status("github_build_status", message)
+
+                if pending:
+                    if self.thread:
+                        self.thread.cancel()
+                    self.thread = threading.Timer(
+                        0.2,
+                        set_status
+                        )
+                    self.thread.start()
+
+            set_status()
 
     def status_summary(self, success, failure, error, pending):
         text = ""
@@ -310,6 +329,20 @@ class GbsRenderCommand(sublime_plugin.TextCommand):
                                     for status in contexts.values()])
             write(" (" + dates.fuzzy(last_update_time, datetime.utcnow()) + ") ")
 
+            pt = output_panel.line(sublime.Region(0, 0)).end()
+
+            output_panel.erase_phantoms("refresh")
+
+            def on_navigate(action):
+                window.run_command("gbs_fetch", {"force": True, "verbose": True})
+
+            output_panel.add_phantom(
+                "refresh",
+                sublime.Region(pt, pt),
+                "<a href=\"open\">↺</a>",
+                sublime.LAYOUT_INLINE,
+                on_navigate=on_navigate
+            )
             write("\n\n")
 
             for i, (context, status) in enumerate(sorted(contexts.items())):
