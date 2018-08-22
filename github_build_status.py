@@ -307,11 +307,11 @@ class GbsRenderCommand(sublime_plugin.TextCommand):
         output_panel = window.find_output_panel("GitHub Build Status")
         if not output_panel:
             output_panel = window.create_output_panel("GitHub Build Status")
-            output_panel.settings().set("color_scheme", preferece.get("color_scheme"))
-            output_panel.settings().set("syntax", "github-build-status.sublime-syntax")
             output_panel.settings().set("github-build-status", True)
             output_panel.set_read_only(True)
 
+        output_panel.settings().set("color_scheme", preferece.get("color_scheme"))
+        output_panel.settings().set("syntax", "github-build-status.sublime-syntax")
         sel = [s for s in output_panel.sel()]
 
         output_panel.set_read_only(False)
