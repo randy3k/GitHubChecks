@@ -276,7 +276,7 @@ class GbsRenderCommand(sublime_plugin.TextCommand):
                     if self.thread:
                         self.thread.cancel()
                     self.thread = threading.Timer(
-                        0.2,
+                        0.1,
                         set_status
                         )
                     self.thread.start()
