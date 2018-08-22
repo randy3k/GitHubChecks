@@ -1,6 +1,7 @@
 # GitHub Build Status
 
-<img width="218" alt="screen shot 2018-08-17 at 2 23 18 pm" src="https://user-images.githubusercontent.com/1690993/44282463-27ce7200-a229-11e8-9be4-b210d9c5bee7.png">
+![ezgif com-optimize](https://user-images.githubusercontent.com/1690993/44470306-55cfff80-a5f7-11e8-95f8-80a76de29465.gif)
+
 
 Display GitHub CI build status in Sublime Text. 
 
