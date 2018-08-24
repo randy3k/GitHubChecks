@@ -232,7 +232,7 @@ class GbsRenderCommand(sublime_plugin.TextCommand):
     badge = None
 
     def run(self, _, force=False):
-        if not force and time.time() - self.last_render_time < 5:
+        if time.time() - self.last_render_time < 5:
             return
         self.last_render_time = time.time()
         sublime.set_timeout_async(lambda: self.run_async(force))
@@ -246,8 +246,7 @@ class GbsRenderCommand(sublime_plugin.TextCommand):
             return
 
         build = builds[window.id()]
-        if window.active_panel() != "output.GitHub Build Status" and \
-                not force and build == self.build:
+        if not force and build == self.build:
             return
 
         if not self.badge:
