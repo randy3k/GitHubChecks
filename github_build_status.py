@@ -34,14 +34,6 @@ div {
 """
 
 
-def plugin_loaded():
-    pass
-
-
-def plugin_unloaded():
-    pass
-
-
 def parse_time(time_string):
     return datetime.strptime(time_string, "%Y-%m-%dT%H:%M:%SZ")
 
@@ -225,11 +217,13 @@ class GbsFetchCommand(GitCommand, sublime_plugin.WindowCommand):
             window.status_message("GitHub build status refreshed.")
 
 
+badges = {}
+
+
 class GbsRenderCommand(sublime_plugin.TextCommand):
 
     last_render_time = 0
     build = None
-    badge = None
 
     def run(self, _, force=False):
         if time.time() - self.last_render_time < 5:
@@ -249,8 +243,10 @@ class GbsRenderCommand(sublime_plugin.TextCommand):
         if not force and build == self.build:
             return
 
-        if not self.badge:
-            self.badge = DynamicBadge(view, "badge#{:d}".format(view.id()))
+        if view.id() not in badges:
+            badges[view.id()] = DynamicBadge(view, "badge#{:d}".format(view.id()))
+
+        badge = badges[view.id()]
 
         self.build = build
 
@@ -273,11 +269,11 @@ class GbsRenderCommand(sublime_plugin.TextCommand):
             if pending:
                 message = message + "({:d}) {{indicator}}".format(pending)
 
-            self.badge.set_status(message)
+            badge.set_status(message)
 
         else:
-            self.badge.erase()
-            self.badge = None
+            badge.erase()
+            badge = None
 
     def status_summary(self, success, failure, error, pending):
         text = ""
@@ -420,3 +416,8 @@ class GbsHandler(sublime_plugin.EventListener):
             sublime.HIDE_ON_MOUSE_MOVE_AWAY,
             location=point,
             on_navigate=on_navigate, on_hide=on_hide)
+
+
+def plugin_unloaded():
+    for badge in badges.values():
+        badge.erase()
