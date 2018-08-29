@@ -1,11 +1,11 @@
 # GitHub Build Status
 
-![ezgif com-optimize](https://user-images.githubusercontent.com/1690993/44470306-55cfff80-a5f7-11e8-95f8-80a76de29465.gif)
+![aug-29-2018 07-15-11](https://user-images.githubusercontent.com/1690993/44784347-54ed1f80-ab5b-11e8-93c2-11c37b70856f.gif)
 
 
 Display GitHub CI build status in Sublime Text. 
 
-The badge: `Build #✓#x#?` where `x` is the number of successful builds, `y` is the number of failures + errors (if any) and `z` is the number of pendings.
+The badge: `Build #✓#x(#)` where `x` is the number of successful builds, `y` is the number of failures + errors (if any) and `z` is the number of pendings.
 
 
 ## Installation
