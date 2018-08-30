@@ -111,6 +111,9 @@ class GbsFetchCommand(GitCommand, sublime_plugin.WindowCommand):
         if self._branch and self._branch != branch:
             force = True
 
+        if force and window.id() in builds:
+            del builds[window.id()]
+
         if not branch:
             if verbose or self.gbs_settings("debug", False):
                 print("branch not found")
@@ -237,6 +240,10 @@ class GbsRenderCommand(sublime_plugin.TextCommand):
         if not window:
             return
         if window.id() not in builds:
+            if view.id() in badges:
+                badge = badges[view.id()]
+                badge.erase()
+                del badges[view.id()]
             return
 
         build = builds[window.id()]
