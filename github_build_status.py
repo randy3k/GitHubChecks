@@ -307,6 +307,8 @@ class GbsRenderCommand(sublime_plugin.TextCommand):
 
     def update_output_panel(self, contexts, success, failure, error, pending):
         window = self.view.window()
+        if not window:
+            return
 
         preferece = sublime.load_settings("Preferences.sublime-settings")
 
