@@ -209,7 +209,8 @@ class GbsFetchCommand(GitCommand, sublime_plugin.WindowCommand):
         if contexts and pending:
             self.thread = threading.Timer(
                 int(self.gbs_settings("refresh", {})),
-                lambda: window.run_command("gbs_fetch", {"force": True}))
+                lambda: sublime.set_timeout(
+                    lambda: window.run_command("gbs_fetch", {"force": True})))
             self.thread.start()
 
         view = window.active_view()
