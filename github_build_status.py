@@ -198,8 +198,10 @@ class GbsFetchCommand(GitCommand, sublime_plugin.WindowCommand):
                     print(reponse.payload)
             return
 
-        if "github/pages" in contexts:
-            del contexts["github/pages"]
+        ignore_services = self.gbs_settings("ignore_services", [])
+        for service in ignore_services:
+            if service in contexts:
+                del contexts[service]
 
         builds[window.id()] = {
             "contexts": contexts

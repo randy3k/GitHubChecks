@@ -11,5 +11,8 @@
     // number of seconds to allow re-fetching from the api
     "cooldown": 60,
 
+    // services to ignore
+    "ignore_services": ["github/pages"],
+
     "debug": false
 }
