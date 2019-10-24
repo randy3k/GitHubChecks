@@ -26,7 +26,7 @@ def parse_remote_url(remote_url):
     return GitHubRepo(remote_url, *match.groups())
 
 
-def query_github(path, github_repo, token=None):
+def query_github(path, github_repo, token=None, headers=None):
     is_enterprise = not github_repo.fqdn.endswith("github.com")
 
     api_url = "api.github.com" if not is_enterprise else github_repo.fqdn
@@ -34,6 +34,6 @@ def query_github(path, github_repo, token=None):
     path = base_path + path
     auth = (token, "x-oauth-basic") if token else None
 
-    response = interwebs.get(api_url, 443, path, https=True, auth=auth)
+    response = interwebs.get(api_url, 443, path, https=True, auth=auth, headers=headers)
 
     return response

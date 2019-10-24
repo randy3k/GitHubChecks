@@ -41,7 +41,8 @@ def request(verb, host, port, path, payload=None, https=False, headers=None, aut
     payload, protocol, headers, and auth information.  Return a response object with
     payload, headers, JSON flag, and HTTP status number.
     """
-    headers = {}
+    if not headers:
+        headers = {}
     headers["User-Agent"] = "GitHubBuildStatus Sublime Plug-in"
 
     if auth:
