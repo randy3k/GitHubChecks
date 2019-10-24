@@ -138,12 +138,11 @@ class GithubChecksFetchCommand(GitCommand, sublime_plugin.WindowCommand):
             sublime.set_timeout_async(lambda: self.run_async(force, verbose))
 
     def run_async(self, force=False, verbose=False):
+        debug = self.github_checks_settings("debug", False)
 
         window = self.window
         if not window:
             return
-
-        debug = self.github_checks_settings("debug", False)
 
         remote = self.git(["config", "branch.{}.remote".format(self._branch)])
         if not remote:
@@ -153,10 +152,40 @@ class GithubChecksFetchCommand(GitCommand, sublime_plugin.WindowCommand):
         remote_url = self.git(["config", "remote.{}.url".format(remote)])
         if not remote_url:
             return
+
         tracking_branch = self.git(["config", "branch.{}.merge".format(self._branch)])
         if not tracking_branch or not tracking_branch.startswith("refs/heads/"):
             return
         tracking_branch = tracking_branch.replace("refs/heads/", "")
+
+        checks = self.query(remote_url, tracking_branch, verbose=verbose)
+
+        ignore_services = self.github_checks_settings("ignore_services", [])
+        for service in ignore_services:
+            if service in checks:
+                del checks[service]
+
+        builds[window.id()] = {
+            "checks": checks
+        }
+        pending = sum(status["state"] == "pending" for status in checks.values())
+
+        if checks and pending:
+            self.thread = threading.Timer(
+                int(self.github_checks_settings("refresh", 30)),
+                lambda: sublime.set_timeout(
+                    lambda: window.run_command("github_checks_fetch", {"force": True})))
+            self.thread.start()
+
+        view = window.active_view()
+        if view:
+            view.run_command("github_checks_render", {"force": force})
+
+        if verbose:
+            window.status_message("GitHub Checks refreshed.")
+
+    def query(self, remote_url, tracking_branch, verbose=False):
+        debug = self.github_checks_settings("debug", False)
 
         token = self.github_checks_settings("token", {})
         github_repo = parse_remote_url(remote_url)
@@ -198,29 +227,7 @@ class GithubChecksFetchCommand(GitCommand, sublime_plugin.WindowCommand):
                     print(reponse.payload)
             return
 
-        ignore_services = self.github_checks_settings("ignore_services", [])
-        for service in ignore_services:
-            if service in checks:
-                del checks[service]
-
-        builds[window.id()] = {
-            "checks": checks
-        }
-        pending = sum(status["state"] == "pending" for status in checks.values())
-
-        if checks and pending:
-            self.thread = threading.Timer(
-                int(self.github_checks_settings("refresh", {})),
-                lambda: sublime.set_timeout(
-                    lambda: window.run_command("github_checks_fetch", {"force": True})))
-            self.thread.start()
-
-        view = window.active_view()
-        if view:
-            view.run_command("github_checks_render", {"force": force})
-
-        if verbose:
-            window.status_message("GitHub Checks refreshed.")
+        return checks
 
 
 badges = {}
