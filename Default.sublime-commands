@@ -1,22 +1,22 @@
 [
     {
-        "caption": "Preferences: GitHub Build Status Settings",
+        "caption": "Preferences: GitHub Checks Settings",
         "command": "edit_settings",
         "args": {
-            "base_file": "${packages}/GitHubBuildStatus/GitHubBuildStatus.sublime-settings"
+            "base_file": "${packages}/GitHubChecks/github_checks.sublime-settings"
         }
     },
     {
-        "caption": "GitHub Build Status: Refresh",
-        "command": "gbs_fetch",
+        "caption": "GitHub Checks: Refresh",
+        "command": "github_checks_fetch",
         "args": {
             "force": true,
             "verbose": true
         }
     },
     {
-        "caption": "GitHub Build Status: Details",
+        "caption": "GitHub Checks: Details",
         "command": "show_panel",
-        "args": { "panel": "output.GitHub Build Status" }
+        "args": { "panel": "output.GitHub Checks" }
     }
 ]

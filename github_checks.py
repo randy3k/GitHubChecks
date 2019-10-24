@@ -27,7 +27,7 @@ div {
 <body>
 <div>
 <a href="open">
-<img width="20%" height="20%" src="res://Packages/GitHubBuildStatus/images/link.png" />
+<img width="20%" height="20%" src="res://Packages/GitHubChecks/images/link.png" />
 </a>
 </div>
 </body>
@@ -40,8 +40,8 @@ def parse_time(time_string):
 
 class GitCommand:
 
-    def gbs_settings(self, key, default=None):
-        s = sublime.load_settings("GitHubBuildStatus.sublime-settings")
+    def github_checks_settings(self, key, default=None):
+        s = sublime.load_settings("github_checks.sublime-settings")
         return s.get(key, default)
 
     def git(self, cmd, cwd=None):
@@ -53,7 +53,7 @@ class GitCommand:
 
         if type(cmd) == str:
             cmd = [cmd]
-        cmd = [self.gbs_settings("git", "git")] + cmd
+        cmd = [self.github_checks_settings("git", "git")] + cmd
         if plat == "windows":
             # make sure console does not come up
             startupinfo = subprocess.STARTUPINFO()
@@ -96,7 +96,7 @@ class GitCommand:
 builds = {}
 
 
-class GbsFetchCommand(GitCommand, sublime_plugin.WindowCommand):
+class GithubChecksFetchCommand(GitCommand, sublime_plugin.WindowCommand):
     thread = None
     last_fetch_time = 0
     _branch = None
@@ -115,11 +115,11 @@ class GbsFetchCommand(GitCommand, sublime_plugin.WindowCommand):
             del builds[window.id()]
 
         if not branch:
-            if verbose or self.gbs_settings("debug", False):
+            if verbose or self.github_checks_settings("debug", False):
                 print("branch not found")
             return
 
-        if not force and time.time() - self.last_fetch_time < self.gbs_settings("cooldown", 60):
+        if not force and time.time() - self.last_fetch_time < self.github_checks_settings("cooldown", 60):
             return
 
         if time.time() - self.last_fetch_time < 1:
@@ -143,7 +143,7 @@ class GbsFetchCommand(GitCommand, sublime_plugin.WindowCommand):
         if not window:
             return
 
-        debug = self.gbs_settings("debug", False)
+        debug = self.github_checks_settings("debug", False)
 
         remote = self.git(["config", "branch.{}.remote".format(self._branch)])
         if not remote:
@@ -158,7 +158,7 @@ class GbsFetchCommand(GitCommand, sublime_plugin.WindowCommand):
             return
         tracking_branch = tracking_branch.replace("refs/heads/", "")
 
-        token = self.gbs_settings("token", {})
+        token = self.github_checks_settings("token", {})
         github_repo = parse_remote_url(remote_url)
         token = token[github_repo.fqdn] if github_repo.fqdn in token else None
 
@@ -177,14 +177,14 @@ class GbsFetchCommand(GitCommand, sublime_plugin.WindowCommand):
                 print("network error")
             return
 
-        contexts = {}
+        checks = {}
         if reponse.status == 200 and reponse.is_json:
             for status in reponse.payload:
                 context = status["context"]
-                if context not in contexts or \
+                if context not in checks or \
                         parse_time(status["updated_at"]) >  \
-                        parse_time(contexts[context]["updated_at"]):
-                    contexts[context] = {
+                        parse_time(checks[context]["updated_at"]):
+                    checks[context] = {
                         "state": status["state"],
                         "description": status["description"],
                         "target_url": status["target_url"],
@@ -198,35 +198,35 @@ class GbsFetchCommand(GitCommand, sublime_plugin.WindowCommand):
                     print(reponse.payload)
             return
 
-        ignore_services = self.gbs_settings("ignore_services", [])
+        ignore_services = self.github_checks_settings("ignore_services", [])
         for service in ignore_services:
-            if service in contexts:
-                del contexts[service]
+            if service in checks:
+                del checks[service]
 
         builds[window.id()] = {
-            "contexts": contexts
+            "checks": checks
         }
-        pending = sum(status["state"] == "pending" for status in contexts.values())
+        pending = sum(status["state"] == "pending" for status in checks.values())
 
-        if contexts and pending:
+        if checks and pending:
             self.thread = threading.Timer(
-                int(self.gbs_settings("refresh", {})),
+                int(self.github_checks_settings("refresh", {})),
                 lambda: sublime.set_timeout(
-                    lambda: window.run_command("gbs_fetch", {"force": True})))
+                    lambda: window.run_command("github_checks_fetch", {"force": True})))
             self.thread.start()
 
         view = window.active_view()
         if view:
-            view.run_command("gbs_render", {"force": force})
+            view.run_command("github_checks_render", {"force": force})
 
         if verbose:
-            window.status_message("GitHub build status refreshed.")
+            window.status_message("GitHub Checks refreshed.")
 
 
 badges = {}
 
 
-class GbsRenderCommand(sublime_plugin.TextCommand):
+class GithubChecksRenderCommand(sublime_plugin.TextCommand):
 
     last_render_time = 0
     build = None
@@ -260,18 +260,18 @@ class GbsRenderCommand(sublime_plugin.TextCommand):
 
         self.build = build
 
-        contexts = build["contexts"]
-        success = sum(status["state"] == "success" for status in contexts.values())
-        failure = sum(status["state"] == "failure" for status in contexts.values())
-        error = sum(status["state"] == "error" for status in contexts.values())
-        pending = sum(status["state"] == "pending" for status in contexts.values())
+        checks = build["checks"]
+        success = sum(status["state"] == "success" for status in checks.values())
+        failure = sum(status["state"] == "failure" for status in checks.values())
+        error = sum(status["state"] == "error" for status in checks.values())
+        pending = sum(status["state"] == "pending" for status in checks.values())
         total = success + failure + error + pending
 
         sublime.set_timeout(
-            lambda: self.update_output_panel(contexts, success, failure, error, pending))
+            lambda: self.update_output_panel(checks, success, failure, error, pending))
 
         if total:
-            message = "Build "
+            message = "GitHub "
             if success:
                 message = message + "{:d}✓".format(success)
             if failure + error:
@@ -308,21 +308,21 @@ class GbsRenderCommand(sublime_plugin.TextCommand):
 
         return text
 
-    def update_output_panel(self, contexts, success, failure, error, pending):
+    def update_output_panel(self, checks, success, failure, error, pending):
         window = self.view.window()
         if not window:
             return
 
         preferece = sublime.load_settings("Preferences.sublime-settings")
 
-        output_panel = window.find_output_panel("GitHub Build Status")
+        output_panel = window.find_output_panel("GitHub Checks")
         if not output_panel:
-            output_panel = window.create_output_panel("GitHub Build Status")
-            output_panel.settings().set("github-build-status", True)
+            output_panel = window.create_output_panel("GitHub Checks")
+            output_panel.settings().set("github-checks", True)
             output_panel.set_read_only(True)
 
         output_panel.settings().set("color_scheme", preferece.get("color_scheme"))
-        output_panel.settings().set("syntax", "github-build-status.sublime-syntax")
+        output_panel.settings().set("syntax", "github-checks.sublime-syntax")
         sel = [s for s in output_panel.sel()]
 
         output_panel.set_read_only(False)
@@ -339,7 +339,7 @@ class GbsRenderCommand(sublime_plugin.TextCommand):
 
         if success + failure + error + pending:
             last_update_time = max([parse_time(status["updated_at"])
-                                    for status in contexts.values()])
+                                    for status in checks.values()])
             write(" (" + dates.fuzzy(last_update_time, datetime.utcnow()) + ") ")
 
             pt = output_panel.line(sublime.Region(0, 0)).end()
@@ -347,7 +347,7 @@ class GbsRenderCommand(sublime_plugin.TextCommand):
             output_panel.erase_phantoms("refresh")
 
             def on_navigate(action):
-                window.run_command("gbs_fetch", {"force": True, "verbose": True})
+                window.run_command("github_checks_fetch", {"force": True, "verbose": True})
 
             output_panel.add_phantom(
                 "refresh",
@@ -358,7 +358,7 @@ class GbsRenderCommand(sublime_plugin.TextCommand):
             )
             write("\n\n")
 
-            for i, (context, status) in enumerate(sorted(contexts.items())):
+            for i, (context, status) in enumerate(sorted(checks.items())):
                 write("{}: {} - {}\n".format(context, status["state"], status["description"]))
 
         output_panel.sel().clear()
@@ -378,8 +378,8 @@ class GbsHandler(sublime_plugin.EventListener):
         if not window:
             return
 
-        window.run_command("gbs_fetch")
-        view.run_command("gbs_render")
+        window.run_command("github_checks_fetch")
+        view.run_command("github_checks_render")
 
     def on_new(self, view):
         self.update_build_status(view)
@@ -391,7 +391,7 @@ class GbsHandler(sublime_plugin.EventListener):
         self.update_build_status(view)
 
     def on_hover(self, view, point, hover_zone):
-        if not view.settings().get("github-build-status", False):
+        if not view.settings().get("github-checks", False):
             return
 
         window = view.window()
@@ -406,12 +406,12 @@ class GbsHandler(sublime_plugin.EventListener):
 
         build = builds[window.id()]
         region = view.extract_scope(point)
-        context = view.substr(region)
+        service = view.substr(region)
 
-        url = build["contexts"][context]["target_url"]
+        url = build["checks"][service]["target_url"]
 
         view.add_regions(
-            context,
+            service,
             [region],
             "meta",
             flags=sublime.DRAW_NO_FILL | sublime.DRAW_NO_OUTLINE | sublime.DRAW_SOLID_UNDERLINE)
@@ -421,7 +421,7 @@ class GbsHandler(sublime_plugin.EventListener):
                 webbrowser.open_new_tab(url)
 
         def on_hide():
-            view.erase_regions(context)
+            view.erase_regions(service)
 
         view.show_popup(
             URL_POPUP,
