@@ -5,6 +5,7 @@
         // "github.com": "<your token>"
         // "another enterprise domain": "another token"
     },
+
     // number of seconds to refresh if there is a pending build
     "refresh": 30,
 
@@ -13,6 +14,9 @@
 
     // services to ignore
     "ignore_services": ["github/pages"],
+
+    // use beta check-runs api
+    "check-runs": false,
 
     "debug": false
 }
