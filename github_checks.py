@@ -343,7 +343,7 @@ class GithubChecksRenderCommand(sublime_plugin.TextCommand):
             if failure + error:
                 message = message + "{:d}✕".format(failure + error)
             if pending:
-                message = message + "{:d}⧗ {{indicator}}".format(pending)
+                message = message + "{:d}⧖ {{indicator}}".format(pending)
 
             badge.set_status(message)
 
@@ -432,7 +432,7 @@ class GithubChecksRenderCommand(sublime_plugin.TextCommand):
                 elif status["state"] == "error":
                     icon = "⚠"
                 else:
-                    icon = "⧗"
+                    icon = "⧖"
 
                 write("{} {} - {}\n".format(icon, context, status["description"]))
 
