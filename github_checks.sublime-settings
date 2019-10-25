@@ -13,7 +13,7 @@
     "cooldown": 60,
 
     // services to ignore
-    "ignore_services": ["github/pages"],
+    "ignore_services": ["github/pages", "GitHub Pages/Page Build"],
 
     "debug": false
 }
