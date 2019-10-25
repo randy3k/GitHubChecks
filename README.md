@@ -1,9 +1,9 @@
 # GitHub Checks
 
-![aug-29-2018 07-15-11](https://user-images.githubusercontent.com/1690993/44784347-54ed1f80-ab5b-11e8-93c2-11c37b70856f.gif)
+<img width="677" alt="Screen Shot 2019-10-24 at 5 43 48 PM" src="https://user-images.githubusercontent.com/1690993/67535077-dd931d00-f685-11e9-804d-8a6785423a70.png">
 
 
-Display GitHub checks in Sublime Text. 
+Show GitHub checks result in Sublime Text.
 
 The badge: `Checks #✓#x(#)` where `x` is the number of successful builds, `y` is the number of failures + errors (if any) and `z` is the number of pendings.
 
