@@ -15,8 +15,5 @@
     // services to ignore
     "ignore_services": ["github/pages"],
 
-    // use beta check-runs api
-    "check-runs": false,
-
     "debug": false
 }

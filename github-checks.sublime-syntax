@@ -6,23 +6,23 @@ hidden: true
 scope: github-checks
 contexts:
   main:
-    - match: '^(.*?): (success(es)?) - (.*)$'
+    - match: '^(✓) (.*?) - (.*)$'
       captures:
-        1: entity.name
-        2: markup.inserted
+        1: markup.inserted
+        2: entity.name
         3: comment
-    - match: '^(.*?): (failure(s)?) - (.*)$'
+    - match: '^(✕) (.*?) - (.*)$'
       captures:
-        1: entity.name
-        2: markup.deleted
+        1: markup.deleted
+        2: entity.name
         3: comment
-    - match: '^(.*?): (error(s)?) - (.*)$'
+    - match: '^(⚠) (.*?) - (.*)$'
       captures:
-        1: entity.name
-        2: markup.deleted
+        1: markup.deleted
+        2: entity.name
         3: comment
-    - match: '^(.*?): (pending(s)?) - (.*)$'
+    - match: '^(⧗) (.*?) - (.*)$'
       captures:
-        1: entity.name
-        2: markup.changed
+        1: markup.changed
+        2: entity.name
         3: comment

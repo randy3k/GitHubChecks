@@ -158,7 +158,9 @@ class GithubChecksFetchCommand(GitCommand, sublime_plugin.WindowCommand):
             return
         tracking_branch = tracking_branch.replace("refs/heads/", "")
 
-        checks = self.query(remote_url, tracking_branch, verbose=verbose)
+        checks = {}
+        checks.update(self.query_check_runs(remote_url, tracking_branch, verbose=verbose))
+        checks.update(self.query_statuses(remote_url, tracking_branch, verbose=verbose))
 
         ignore_services = self.github_checks_settings("ignore_services", [])
         for service in ignore_services:
@@ -184,7 +186,64 @@ class GithubChecksFetchCommand(GitCommand, sublime_plugin.WindowCommand):
         if verbose:
             window.status_message("GitHub Checks refreshed.")
 
-    def query(self, remote_url, tracking_branch, verbose=False):
+    def query_check_runs(self, remote_url, tracking_branch, verbose=False):
+        debug = self.github_checks_settings("debug", False)
+
+        token = self.github_checks_settings("token", {})
+        github_repo = parse_remote_url(remote_url)
+        token = token[github_repo.fqdn] if github_repo.fqdn in token else None
+        headers = {"Accept": "application/vnd.github.antiope-preview+json"}
+
+        path = "/repos/{owner}/{repo}/commits/{branch}/check-runs".format(
+            owner=github_repo.owner,
+            repo=github_repo.repo,
+            branch=tracking_branch
+        )
+
+        if debug:
+            print("fetching from github api: {}/{}".format(github_repo.owner, github_repo.repo))
+        try:
+            reponse = query_github(path, github_repo, token, headers=headers)
+        except socket.gaierror:
+            if verbose or debug:
+                print("network error")
+            return
+
+        checks = {}
+        if reponse.status == 200 and reponse.is_json:
+            if reponse.payload["total_count"] > 0:
+                check_runs = reponse.payload["check_runs"]
+                for run in check_runs:
+                    context = run["app"]["name"] + "/" + run["name"]
+                    status = run["status"]
+                    if status == "completed":
+                        conclusion = run["conclusion"]
+                        if conclusion == "success":
+                            state = "success"
+                        elif conclusion == "failure":
+                            state = "failure"
+                        else:
+                            state = "error"
+                    else:
+                        state = "pending"
+
+                    checks[context] = {
+                        "state": state,
+                        "description": run["output"]["summary"] or "",
+                        "target_url": run["html_url"],
+                        "created_at": run["app"]["created_at"],
+                        "updated_at": run["app"]["updated_at"]
+                    }
+        else:
+            if verbose or debug:
+                print("request status: {:d}".format(reponse.status))
+                if debug:
+                    print(reponse.payload)
+            return
+
+        return checks
+
+    def query_statuses(self, remote_url, tracking_branch, verbose=False):
         debug = self.github_checks_settings("debug", False)
 
         token = self.github_checks_settings("token", {})
@@ -366,13 +425,22 @@ class GithubChecksRenderCommand(sublime_plugin.TextCommand):
             write("\n\n")
 
             for i, (context, status) in enumerate(sorted(checks.items())):
-                write("{}: {} - {}\n".format(context, status["state"], status["description"]))
+                if status["state"] == "success":
+                    icon = "✓"
+                elif status["state"] == "failure":
+                    icon = "✕"
+                elif status["state"] == "error":
+                    icon = "⚠"
+                else:
+                    icon = "⧗"
+
+                write("{} {} - {}\n".format(icon, context, status["description"]))
 
         output_panel.sel().clear()
         output_panel.sel().add_all(sel)
 
 
-class GbsHandler(sublime_plugin.EventListener):
+class GithubChecksHandler(sublime_plugin.EventListener):
 
     def update_build_status(self, view):
         sublime.set_timeout_async(lambda: self.update_build_status_async(view))
