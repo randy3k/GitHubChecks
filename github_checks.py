@@ -159,8 +159,8 @@ class GithubChecksFetchCommand(GitCommand, sublime_plugin.WindowCommand):
         tracking_branch = tracking_branch.replace("refs/heads/", "")
 
         checks = {}
-        checks.update(self.query_check_runs(remote_url, tracking_branch, verbose=verbose))
-        checks.update(self.query_statuses(remote_url, tracking_branch, verbose=verbose))
+        checks.update(self.query_check_runs(remote_url, tracking_branch, verbose=verbose) or {})
+        checks.update(self.query_statuses(remote_url, tracking_branch, verbose=verbose) or {})
 
         ignore_services = self.github_checks_settings("ignore_services", [])
         for service in ignore_services:
