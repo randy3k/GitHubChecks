@@ -222,6 +222,8 @@ class GithubChecksFetchCommand(GitCommand, sublime_plugin.WindowCommand):
                             state = "success"
                         elif conclusion == "failure":
                             state = "failure"
+                        elif conclusion == "neutral":
+                            continue
                         else:
                             state = "error"
                     else:
