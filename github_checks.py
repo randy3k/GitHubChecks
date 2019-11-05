@@ -233,8 +233,8 @@ class GithubChecksFetchCommand(GitCommand, sublime_plugin.WindowCommand):
                         "state": state,
                         "description": run["output"]["title"] or "",
                         "target_url": run["html_url"],
-                        "created_at": run["app"]["created_at"],
-                        "updated_at": run["app"]["updated_at"]
+                        "created_at": run["started_at"],
+                        "updated_at": run["completed_at"] or run["started_at"]
                     }
         else:
             if verbose or debug:
