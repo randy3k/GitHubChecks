@@ -440,6 +440,7 @@ class GithubChecksRenderCommand(sublime_plugin.TextCommand):
 
         output_panel.sel().clear()
         output_panel.sel().add_all(sel)
+        output_panel.show(output_panel.sel())
 
 
 class GithubChecksHandler(sublime_plugin.EventListener):
