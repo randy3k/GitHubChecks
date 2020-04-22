@@ -334,13 +334,14 @@ class GithubChecksRenderCommand(sublime_plugin.TextCommand):
         success = sum(status["state"] == "success" for status in checks.values())
         failure = sum(status["state"] == "failure" for status in checks.values())
         error = sum(status["state"] == "error" for status in checks.values())
+        skipped = sum(status["state"] == "skipped" for status in checks.values())
         pending = sum(status["state"] == "pending" for status in checks.values())
-        total = success + failure + error + pending
 
         sublime.set_timeout(
-            lambda: self.update_output_panel(checks, success, failure, error, pending))
+            lambda: self.update_output_panel(checks, success, failure, error, skipped, pending))
 
-        if total:
+        if success + failure + error + pending:
+            # ignore skipped
             message = "GitHub "
             if success:
                 message = message + "{:d}✓".format(success)
@@ -355,30 +356,41 @@ class GithubChecksRenderCommand(sublime_plugin.TextCommand):
             badge.erase()
             badge = None
 
-    def status_summary(self, success, failure, error, pending):
+    def status_summary(self, success, failure, error, skipped, pending):
         text = ""
         if success:
-            text += "{:d} success{}".format(success, "es" if success > 1 else "")
+            text += "{:d} successful".format(success)
         if failure:
             if success and (error or pending):
                 text += " , "
             elif success:
                 text += " and "
-            text += "{:d} failure{}".format(failure, "s" if failure > 1 else "")
+            text += "{:d} failed".format(failure)
         if error:
             if (success or failure) and pending:
                 text += " , "
             elif success or failure:
                 text += " and "
-            text += "{:d} error{}".format(error, "s" if error > 1 else "")
-        if pending:
+            text += "{:d} error".format(error)
+        if skipped:
             if success or failure or error:
                 text += " and "
-            text += "{:d} pending{}".format(pending, "s" if pending > 1 else "")
+            text += "{:d} skipped".format(skipped)
+        if pending:
+            if success or failure or error or skipped:
+                text += " and "
+            text += "{:d} pending".format(pending)
+
+        total = success + failure + error + skipped + pending
+
+        if total > 1:
+            text += " checks"
+        else:
+            text += " check"
 
         return text
 
-    def update_output_panel(self, checks, success, failure, error, pending):
+    def update_output_panel(self, checks, success, failure, error, skipped, pending):
         window = self.view.window()
         if not window:
             return
@@ -405,7 +417,7 @@ class GithubChecksRenderCommand(sublime_plugin.TextCommand):
             output_panel.run_command("append", {"characters": text})
             output_panel.set_read_only(True)
 
-        write(self.status_summary(success, failure, error, pending))
+        write(self.status_summary(success, failure, error, skipped, pending))
 
         if success + failure + error + pending:
             last_update_time = max([parse_time(status["updated_at"])
@@ -436,7 +448,7 @@ class GithubChecksRenderCommand(sublime_plugin.TextCommand):
                 elif status["state"] == "error":
                     icon = "⚠"
                 elif status["state"] == "netural" or status["state"] == "skipped":
-                    icon = "☉"
+                    icon = "∅"
                 else:
                     icon = "⧖"
 

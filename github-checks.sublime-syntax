@@ -25,7 +25,7 @@ contexts:
       captures:
         2: entity.name
         3: comment
-    - match: '^(☉) (.*?) - (.*)$'
+    - match: '^(∅) (.*?) - (.*)$'
       captures:
         1: markup.changed
         2: entity.name
