@@ -119,7 +119,8 @@ class GithubChecksFetchCommand(GitCommand, sublime_plugin.WindowCommand):
                 print("branch not found")
             return
 
-        if not force and time.time() - self.last_fetch_time < self.github_checks_settings("cooldown", 60):
+        cooldown = self.github_checks_settings("cooldown", 60)
+        if not force and time.time() - self.last_fetch_time < cooldown:
             return
 
         if time.time() - self.last_fetch_time < 1:
