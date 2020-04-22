@@ -223,7 +223,9 @@ class GithubChecksFetchCommand(GitCommand, sublime_plugin.WindowCommand):
                         elif conclusion == "failure":
                             state = "failure"
                         elif conclusion == "neutral":
-                            continue
+                            state = "neutral"
+                        elif conclusion == "skipped":
+                            state = "skipped"
                         else:
                             state = "error"
                     else:
@@ -433,6 +435,8 @@ class GithubChecksRenderCommand(sublime_plugin.TextCommand):
                     icon = "✕"
                 elif status["state"] == "error":
                     icon = "⚠"
+                elif status["state"] == "netural" or status["state"] == "skipped":
+                    icon = "☉"
                 else:
                     icon = "⧖"
 

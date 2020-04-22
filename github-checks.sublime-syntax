@@ -23,6 +23,10 @@ contexts:
         3: comment
     - match: '^(⧖) (.*?) - (.*)$'
       captures:
+        2: entity.name
+        3: comment
+    - match: '^(☉) (.*?) - (.*)$'
+      captures:
         1: markup.changed
         2: entity.name
         3: comment
