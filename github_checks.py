@@ -97,6 +97,7 @@ builds = {}
 
 
 class GithubChecksFetchCommand(GitCommand, sublime_plugin.WindowCommand):
+    timer = None
     thread = None
     last_fetch_time = 0
     _branch = None
@@ -131,12 +132,13 @@ class GithubChecksFetchCommand(GitCommand, sublime_plugin.WindowCommand):
         self.last_fetch_time = time.time()
         self._branch = branch
 
-        if force and self.thread:
-            self.thread.cancel()
-            self.thread = None
+        if force and self.timer:
+            self.timer.cancel()
+            self.timer = None
 
-        if not self.thread:
-            sublime.set_timeout_async(lambda: self.run_async(force, verbose))
+        if not self.timer:
+            self.thread = threading.Thread(target=lambda: self.run_async(force, verbose))
+            self.thread.start()
 
     def run_async(self, force=False, verbose=False):
         debug = self.github_checks_settings("debug", False)
@@ -174,15 +176,15 @@ class GithubChecksFetchCommand(GitCommand, sublime_plugin.WindowCommand):
         pending = sum(status["state"] == "pending" for status in checks.values())
 
         if checks and pending:
-            self.thread = threading.Timer(
+            self.timer = threading.Timer(
                 int(self.github_checks_settings("refresh", 30)),
                 lambda: sublime.set_timeout(
                     lambda: window.run_command("github_checks_fetch", {"force": True})))
-            self.thread.start()
+            self.timer.start()
 
         view = window.active_view()
         if view:
-            view.run_command("github_checks_render", {"force": force})
+            sublime.set_timeout(lambda: view.run_command("github_checks_render", {"force": force}))
 
         if verbose:
             window.status_message("GitHub Checks refreshed.")
@@ -202,7 +204,8 @@ class GithubChecksFetchCommand(GitCommand, sublime_plugin.WindowCommand):
         )
 
         if debug:
-            print("fetching from github api: {}/{}".format(github_repo.owner, github_repo.repo))
+            print("fetching from github check-runs api: {}/{}".format(
+                    github_repo.owner, github_repo.repo))
         try:
             reponse = query_github(path, github_repo, token, headers=headers)
         except socket.gaierror:
@@ -262,7 +265,8 @@ class GithubChecksFetchCommand(GitCommand, sublime_plugin.WindowCommand):
         )
 
         if debug:
-            print("fetching from github api: {}/{}".format(github_repo.owner, github_repo.repo))
+            print("fetching from github statuses api: {}/{}".format(
+                    github_repo.owner, github_repo.repo))
         try:
             reponse = query_github(path, github_repo, token)
         except socket.gaierror:
