@@ -218,6 +218,7 @@ class GithubChecksFetchCommand(GitCommand, sublime_plugin.WindowCommand):
             if reponse.payload["total_count"] > 0:
                 check_runs = reponse.payload["check_runs"]
                 for run in check_runs:
+                    runid = str(run["id"])
                     context = run["app"]["name"] + "/" + run["name"]
                     status = run["status"]
                     if status == "completed":
@@ -235,8 +236,9 @@ class GithubChecksFetchCommand(GitCommand, sublime_plugin.WindowCommand):
                     else:
                         state = "pending"
 
-                    checks[context] = {
+                    checks[runid] = {
                         "state": state,
+                        "context": context,
                         "description": run["output"]["title"] or "",
                         "target_url": run["html_url"],
                         "created_at": run["started_at"],
@@ -258,7 +260,7 @@ class GithubChecksFetchCommand(GitCommand, sublime_plugin.WindowCommand):
         github_repo = parse_remote_url(remote_url)
         token = token[github_repo.fqdn] if github_repo.fqdn in token else None
 
-        path = "/repos/{owner}/{repo}/statuses/{branch}".format(
+        path = "/repos/{owner}/{repo}/commits/{branch}/statuses".format(
             owner=github_repo.owner,
             repo=github_repo.repo,
             branch=tracking_branch
@@ -283,6 +285,7 @@ class GithubChecksFetchCommand(GitCommand, sublime_plugin.WindowCommand):
                         parse_time(checks[context]["updated_at"]):
                     checks[context] = {
                         "state": status["state"],
+                        "context": status["context"],
                         "description": status["description"],
                         "target_url": status["target_url"],
                         "created_at": status["created_at"],
@@ -445,7 +448,7 @@ class GithubChecksRenderCommand(sublime_plugin.TextCommand):
             )
             write("\n\n")
 
-            for i, (context, status) in enumerate(sorted(checks.items())):
+            for i, (_, status) in enumerate(sorted(checks.items())):
                 if status["state"] == "success":
                     icon = "✓"
                 elif status["state"] == "failure":
@@ -457,7 +460,7 @@ class GithubChecksRenderCommand(sublime_plugin.TextCommand):
                 else:
                     icon = "⧖"
 
-                write("{} {} - {}\n".format(icon, context, status["description"]))
+                write("{} {} - {}\n".format(icon, status["context"], status["description"]))
 
         output_panel.sel().clear()
         output_panel.sel().add_all(sel)
