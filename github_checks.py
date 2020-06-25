@@ -236,7 +236,10 @@ class GithubChecksFetchCommand(GitCommand, sublime_plugin.WindowCommand):
                     else:
                         state = "pending"
 
-                    checks[runid] = {
+                    if context in checks:
+                        context = context + " " + runid
+
+                    checks[context] = {
                         "state": state,
                         "context": context,
                         "description": run["output"]["title"] or "",
