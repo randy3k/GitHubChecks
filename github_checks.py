@@ -65,7 +65,6 @@ class GitCommand:
             my_env["PATH"] = "/usr/local/bin:/usr/bin:" + my_env["PATH"]
             p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                  cwd=cwd, env=my_env)
-        p.wait()
         stdoutdata, stderrdata = p.communicate()
         stdout = stdoutdata.decode('utf-8')
         if stdout:
