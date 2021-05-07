@@ -175,6 +175,9 @@ class GithubChecksFetchCommand(GitCommand, sublime_plugin.WindowCommand):
             if service in checks:
                 del checks[service]
 
+        if window.id() not in builds:
+            force = True
+
         builds[window.id()] = {
             "checks": checks
         }
@@ -189,7 +192,8 @@ class GithubChecksFetchCommand(GitCommand, sublime_plugin.WindowCommand):
 
         view = window.active_view()
         if view:
-            sublime.set_timeout(lambda: view.run_command("github_checks_render", {"force": force}))
+            sublime.set_timeout(
+                lambda: view.run_command("github_checks_render", {"force": force}), 300)
 
         if verbose:
             window.status_message("GitHub Checks refreshed.")
@@ -381,7 +385,7 @@ class GithubChecksRenderCommand(sublime_plugin.TextCommand):
     build = None
 
     def run(self, _, force=False):
-        if time.time() - self.last_render_time < 5:
+        if time.time() - self.last_render_time < 5 and not force:
             return
         self.last_render_time = time.time()
         sublime.set_timeout_async(lambda: self.run_async(force))
