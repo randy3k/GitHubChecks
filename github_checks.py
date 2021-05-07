@@ -160,9 +160,15 @@ class GithubChecksFetchCommand(GitCommand, sublime_plugin.WindowCommand):
             return
         tracking_branch = tracking_branch.replace("refs/heads/", "")
 
+        tracking_commit = self.query_branch_sha(remote_url, tracking_branch, verbose=verbose)
+        if not tracking_commit:
+            return
+
         checks = {}
-        checks.update(self.query_check_runs(remote_url, tracking_branch, verbose=verbose) or {})
-        checks.update(self.query_statuses(remote_url, tracking_branch, verbose=verbose) or {})
+        checks.update(self.query_workflows(
+            remote_url, tracking_branch, tracking_commit, verbose=verbose))
+        checks.update(self.query_status(
+            remote_url, tracking_branch, tracking_commit, verbose=verbose))
 
         ignore_services = self.github_checks_settings("ignore_services", [])
         for service in ignore_services:
@@ -188,40 +194,117 @@ class GithubChecksFetchCommand(GitCommand, sublime_plugin.WindowCommand):
         if verbose:
             window.status_message("GitHub Checks refreshed.")
 
-    def query_check_runs(self, remote_url, tracking_branch, verbose=False):
+    def query_branch_sha(self, remote_url, tracking_branch, verbose=False):
         debug = self.github_checks_settings("debug", False)
 
         token = self.github_checks_settings("token", {})
         github_repo = parse_remote_url(remote_url)
         token = token[github_repo.fqdn] if github_repo.fqdn in token else None
-        headers = {"Accept": "application/vnd.github.antiope-preview+json"}
 
-        path = "/repos/{owner}/{repo}/commits/{branch}/check-runs".format(
+        path = "/repos/{owner}/{repo}/branches/{branch}".format(
             owner=github_repo.owner,
             repo=github_repo.repo,
             branch=tracking_branch
         )
 
         if debug:
-            print("fetching from github check-runs api: {}/{}".format(
+            print("fetching from github branches api: {}/{}".format(
                     github_repo.owner, github_repo.repo))
         try:
-            reponse = query_github(path, github_repo, token, headers=headers)
+            response = query_github(path, github_repo, token)
         except socket.gaierror:
             if verbose or debug:
                 print("network error")
             return
 
+        if response.status == 200 and response.is_json:
+            return response.payload["commit"]["sha"]
+        else:
+            return
+
+    def query_workflows(self, remote_url, tracking_branch, tracking_commit, verbose=False):
+        debug = self.github_checks_settings("debug", False)
+
+        token = self.github_checks_settings("token", {})
+        github_repo = parse_remote_url(remote_url)
+        token = token[github_repo.fqdn] if github_repo.fqdn in token else None
+        headers = {"Accept": "application/vnd.github.v3+json"}
+
+        path = "/repos/{owner}/{repo}/actions/runs?branch={branch}".format(
+            owner=github_repo.owner,
+            repo=github_repo.repo,
+            branch=tracking_branch
+        )
+
+        if debug:
+            print("fetching from github actions/runs api: {}/{}".format(
+                    github_repo.owner, github_repo.repo))
+        try:
+            response = query_github(path, github_repo, token, headers=headers)
+        except socket.gaierror:
+            if verbose or debug:
+                print("network error")
+            return {}
+
         checks = {}
-        if reponse.status == 200 and reponse.is_json:
-            if reponse.payload["total_count"] > 0:
-                check_runs = reponse.payload["check_runs"]
-                for run in check_runs:
-                    runid = str(run["id"])
-                    context = run["app"]["name"] + "/" + run["name"]
-                    status = run["status"]
+        if response.status == 200 and response.is_json:
+            if response.payload["total_count"] > 0:
+                workflow_runs = response.payload["workflow_runs"]
+                for run in workflow_runs:
+                    if run["head_commit"]["id"] != tracking_commit:
+                        continue
+                    if run["event"] != "push":
+                        continue
+                    name = run["name"]
+                    run_id = run["id"]
+                    workflow_checks = self.query_jobs(remote_url, name, run_id, verbose=verbose)
+                    for check in workflow_checks:
+                        workflow_checks[check]["created_at"] = run["created_at"]
+                        workflow_checks[check]["updated_at"] = run["updated_at"]
+
+                    checks.update(workflow_checks)
+
+        else:
+            if verbose or debug:
+                print("request status: {:d}".format(response.status))
+                if debug:
+                    print(response.payload)
+            return {}
+
+        return checks
+
+    def query_jobs(self, remote_url, run_name, run_id, verbose=False):
+        debug = self.github_checks_settings("debug", False)
+
+        token = self.github_checks_settings("token", {})
+        github_repo = parse_remote_url(remote_url)
+        token = token[github_repo.fqdn] if github_repo.fqdn in token else None
+        headers = {"Accept": "application/vnd.github.v3+json"}
+
+        path = "/repos/{owner}/{repo}/actions/runs/{run_id}/jobs".format(
+            owner=github_repo.owner,
+            repo=github_repo.repo,
+            run_id=run_id
+        )
+        if debug:
+            print("fetching from github actions/runs/jobs api: {}/{}".format(
+                    github_repo.owner, github_repo.repo))
+        try:
+            response = query_github(path, github_repo, token, headers=headers)
+        except socket.gaierror:
+            if verbose or debug:
+                print("network error")
+            return {}
+
+        checks = {}
+        if response.status == 200 and response.is_json:
+            if response.payload["total_count"] > 0:
+                jobs = response.payload["jobs"]
+                for job in jobs:
+                    context = run_name + " / " + job["name"]
+                    status = job["status"]
                     if status == "completed":
-                        conclusion = run["conclusion"]
+                        conclusion = job["conclusion"]
                         if conclusion == "success":
                             state = "success"
                         elif conclusion == "failure":
@@ -235,70 +318,56 @@ class GithubChecksFetchCommand(GitCommand, sublime_plugin.WindowCommand):
                     else:
                         state = "pending"
 
-                    if context in checks:
-                        context = context + " " + runid
-
                     checks[context] = {
                         "state": state,
                         "context": context,
-                        "description": run["output"]["title"] or "",
-                        "target_url": run["html_url"],
-                        "created_at": run["started_at"],
-                        "updated_at": run["completed_at"] or run["started_at"]
+                        "description": job["conclusion"],
+                        "target_url": job["html_url"]
                     }
-        else:
-            if verbose or debug:
-                print("request status: {:d}".format(reponse.status))
-                if debug:
-                    print(reponse.payload)
-            return
 
         return checks
 
-    def query_statuses(self, remote_url, tracking_branch, verbose=False):
+    def query_status(self, remote_url, tracking_branch, tracking_commit, verbose=False):
         debug = self.github_checks_settings("debug", False)
 
         token = self.github_checks_settings("token", {})
         github_repo = parse_remote_url(remote_url)
         token = token[github_repo.fqdn] if github_repo.fqdn in token else None
 
-        path = "/repos/{owner}/{repo}/commits/{branch}/statuses".format(
+        path = "/repos/{owner}/{repo}/commits/{sha}/status".format(
             owner=github_repo.owner,
             repo=github_repo.repo,
-            branch=tracking_branch
+            sha=tracking_commit
         )
 
         if debug:
-            print("fetching from github statuses api: {}/{}".format(
+            print("fetching from github status api: {}/{}".format(
                     github_repo.owner, github_repo.repo))
         try:
-            reponse = query_github(path, github_repo, token)
+            response = query_github(path, github_repo, token)
         except socket.gaierror:
             if verbose or debug:
                 print("network error")
-            return
+            return {}
 
         checks = {}
-        if reponse.status == 200 and reponse.is_json:
-            for status in reponse.payload:
+        if response.status == 200 and response.is_json:
+            for status in response.payload["statuses"]:
                 context = status["context"]
-                if context not in checks or \
-                        parse_time(status["updated_at"]) >  \
-                        parse_time(checks[context]["updated_at"]):
-                    checks[context] = {
-                        "state": status["state"],
-                        "context": status["context"],
-                        "description": status["description"],
-                        "target_url": status["target_url"],
-                        "created_at": status["created_at"],
-                        "updated_at": status["updated_at"]
-                    }
+                checks[context] = {
+                    "state": status["state"],
+                    "context": status["context"],
+                    "description": status["description"],
+                    "target_url": status["target_url"],
+                    "created_at": status["created_at"],
+                    "updated_at": status["updated_at"]
+                }
         else:
             if verbose or debug:
-                print("request status: {:d}".format(reponse.status))
+                print("request status: {:d}".format(response.status))
                 if debug:
-                    print(reponse.payload)
-            return
+                    print(response.payload)
+            return {}
 
         return checks
 
@@ -395,7 +464,7 @@ class GithubChecksRenderCommand(sublime_plugin.TextCommand):
 
         if total > 1:
             text += " checks"
-        else:
+        elif total > 0:
             text += " check"
 
         return text
