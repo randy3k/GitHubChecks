@@ -390,15 +390,15 @@ class GithubChecksRenderCommand(sublime_plugin.TextCommand):
             return
 
         def _run():
-            self.last_render_time = time.time()
             try:
                 self.run_async(force)
             finally:
                 self.render_scheduled = False
 
         if not self.render_scheduled:
+            self.last_render_time = time.time()
             self.render_scheduled = True
-            sublime.set_timeout_async(lambda: self.run_async(force))
+            sublime.set_timeout_async(_run)
 
     def run_async(self, force):
         view = self.view
