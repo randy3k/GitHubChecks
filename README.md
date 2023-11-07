@@ -23,7 +23,7 @@ cd $HOME/.config/sublime-text-3/Packages
 # on Windows (PowerShell)
 cd "$env:appdata\Sublime Text 3\Packages\"
 
-git clone git@github.com/randy3k/GitHubChecks.git
+git clone git@github.com:randy3k/GitHubChecks.git
 ```
 
 ## Show Checks Details
